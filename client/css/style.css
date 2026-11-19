@@ -15,7 +15,7 @@ body{
 
 body{
 
-    background:#535353;
+    background:#2B2B2B;
     color:#e5e5e5;
     font-size:13px;
     overflow:hidden;
@@ -44,15 +44,72 @@ header{
 
 header h1{
 
-    font-size:16px;
-    margin-bottom:2px;
+    font-size:13px;
+    font-weight:600;
+    letter-spacing:.5px;
+    color:#34B84C;
+    text-transform:uppercase;
+
+}
+
+.logo{
+
+    width:140px;
+    height:auto;
+    display:block;
+    flex-shrink:1;
+    min-width:0;
 
 }
 
 header small{
 
     color:#999;
+    cursor:default;
 
+}
+
+/* ---- Library update bar (bottom of the panel) ---- */
+
+#updateBar{
+    flex-shrink:0;
+    padding:4px 10px 6px 10px;
+    background:#262626;
+    border-top:1px solid #3d3d3d;
+    font-size:10px;
+    color:#d7d7d7;
+}
+
+#updateBar.hidden{
+    display:none;
+}
+
+.update-track{
+    height:5px;
+    margin-top:3px;
+    background:#3d3d3d;
+    border-radius:3px;
+    overflow:hidden;
+}
+
+.update-fill{
+    height:100%;
+    width:0;
+    background:#22A438;
+    border-radius:3px;
+    transition:width .25s ease;
+}
+
+#updateBar.done .update-text{
+    color:#34B84C;
+}
+
+#updateBar.failed .update-text{
+    color:#ffb3b3;
+}
+
+#updateBar.failed .update-fill{
+    background:#a43a3a;
 }
 
 .header-top{
@@ -64,11 +121,9 @@ header small{
 }
 
 .title-group{
-
     display:flex;
-    align-items:baseline;
-    gap:6px;
-
+    align-items:center;
+    gap:8px;
 }
 
 #reload{
@@ -94,27 +149,26 @@ header small{
 }
 
 #reload:hover{
-
-    background:#4A4A4A;
-
+    background:#3a3a3a;
 }
 
 
 .item{
-
     margin-bottom:6px;
-    border:1px solid #4a4a4a;
+    border:1px solid #3d3d3d;
     overflow:hidden;
+    background:#303030;
+}
 
+.item.open{
+    border-color:#22A438;
 }
 
 .title{
-
     width:100%;
-
-    border:1px solid #4a4a4a;
-
-    background:#535353;
+    border:0;
+    border-left:3px solid #22A438;
+    background:#383838;
 
     color:white;
 
@@ -135,9 +189,7 @@ header small{
 }
 
 .title:hover{
-
-    background:#565656;
-
+    background:#424242;
 }
 
 .content{
@@ -173,12 +225,9 @@ header small{
 }
 
 .tool{
-
-    background:#535353;
-
+    background:#3a3a3a;
     color:white;
-
-    border:1px solid #5f5f5f;
+    border:1px solid #4a4a4a;
 
     padding:5px;
 
@@ -197,9 +246,8 @@ header small{
 }
 
 .tool:hover{
-
-	background:#4d4d4d;
-
+    background:#22A438;
+    border-color:#34B84C;
 }
 
 .tool-help{
@@ -275,12 +323,10 @@ header small{
     padding-left:10px;
     padding-right:36px;
 
-    background:#454545;
-
+    background:#383838;
     color:#FFF;
-	font-size:10px;
-
-    border:1px solid #5A5A5A;
+    font-size:10px;
+    border:1px solid #4a4a4a;
 
 
     outline:none;
@@ -289,7 +335,7 @@ header small{
 
 #search:focus{
 
-    border-color:#7DA2FF;
+    border-color:#34B84C;
 
 }
 
@@ -303,10 +349,10 @@ header small{
 
     transform:translateY(-50%);
 
-    width:14px;
-    height:14px;
+    width:15px;
+    height:15px;
 
-    opacity:.6;
+    opacity:1;
 
     pointer-events:none;
 
@@ -384,7 +430,7 @@ header small{
 
 }
 #statusBar{
-    border-top:1px solid #5A5A5A;
+    border-top:1px solid #3d3d3d;
     margin-top:5px;
     padding-top:2px;
     background:#323232;
@@ -425,4 +471,315 @@ header small{
 
     color:#ffb3b3 !important;
 
+}
+
+
+/* ---- Connection / update state under the title ---- */
+
+.version-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+}
+
+#update-state{
+    font-size:10px;
+    color:#999;
+}
+
+#update-state.ok{
+    color:#34B84C;
+}
+
+#update-state.offline{
+    color:#ffcf5a;
+}
+
+#update-state.error{
+    color:#ff9a9a;
+}
+
+
+/* ---- Slim scroll bar ---- */
+
+::-webkit-scrollbar{
+    width:6px;
+    height:6px;
+}
+
+::-webkit-scrollbar-track{
+    background:transparent;
+}
+
+::-webkit-scrollbar-thumb{
+    background:#4a4a4a;
+    border-radius:3px;
+}
+
+::-webkit-scrollbar-thumb:hover{
+    background:#22A438;
+}
+
+::-webkit-scrollbar-button{
+    display:none;
+    width:0;
+    height:0;
+}
+
+::-webkit-scrollbar-corner{
+    background:transparent;
+}
+
+
+/* ---- Favorites (wolf) ---- */
+
+.tool-right{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-left:10px;
+    flex-shrink:0;
+}
+
+.tool-right .tool-help{
+    margin-left:0;
+}
+
+.fav-btn{
+    width:18px;
+    height:18px;
+    cursor:pointer;
+    flex-shrink:0;
+    transition:.15s;
+}
+
+.fav-btn:hover{
+    transform:scale(1.15);
+    filter:brightness(1.4);
+}
+
+.fav-empty{
+    padding:6px 4px;
+    font-size:10px;
+    color:#8a8a8a;
+}
+
+
+/* ---- Recently used / drag / missing tools ---- */
+
+.tool.dragging{
+    opacity:.35;
+}
+
+.tool.draggable{
+    cursor:grab;
+}
+
+.tool.missing,
+.tool:disabled{
+    opacity:.45;
+    cursor:not-allowed;
+}
+
+.tool.missing:hover,
+.tool:disabled:hover{
+    background:#3a3a3a;
+    border-color:#4a4a4a;
+}
+
+.fav-title-icon{
+    width:16px;
+    height:16px;
+}
+
+/* ---- Error report button in the status bar ---- */
+
+.status{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    padding:2px 6px;
+    white-space:pre-wrap;
+}
+
+.status-btn{
+    flex-shrink:0;
+    font-size:10px;
+    padding:1px 8px;
+    background:#22A438;
+    color:#fff;
+    border:0;
+    border-radius:3px;
+    cursor:pointer;
+}
+
+.status-btn:hover{
+    background:#34B84C;
+}
+
+/* ---- What's new window ---- */
+
+#whatsNew{
+    position:fixed;
+    top:0;
+    left:0;
+    right:0;
+    bottom:0;
+    background:rgba(0,0,0,.65);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:50;
+}
+
+#whatsNew.hidden{
+    display:none;
+}
+
+.modal{
+    width:92%;
+    max-height:88%;
+    display:flex;
+    flex-direction:column;
+    background:#2B2B2B;
+    border:1px solid #22A438;
+    border-radius:4px;
+    box-shadow:0 4px 18px rgba(0,0,0,.5);
+}
+
+.modal-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:7px 10px;
+    border-bottom:1px solid #3d3d3d;
+    color:#34B84C;
+    font-size:11px;
+    font-weight:600;
+}
+
+.modal-head button{
+    background:transparent;
+    border:0;
+    color:inherit;
+    font-size:16px;
+    line-height:1;
+    cursor:pointer;
+}
+
+#whatsNewBody{
+    padding:10px;
+    overflow:auto;
+    white-space:pre-wrap;
+    font-family:"Segoe UI",sans-serif;
+    font-size:10px;
+    line-height:1.5;
+    color:#e5e5e5;
+}
+
+/* ---- Light theme (when Illustrator uses a light interface) ---- */
+
+body.light{
+    background:#f0f0f0;
+    color:#222;
+}
+
+.light header small,
+.light #update-state{
+    color:#666;
+}
+
+.light #update-state.ok{ color:#1a8f2e; }
+.light #update-state.offline{ color:#a86d00; }
+.light #update-state.error{ color:#b02a2a; }
+
+.light header h1{
+    color:#1a8f2e;
+}
+
+.light .item{
+    background:#fafafa;
+    border-color:#cfcfcf;
+}
+
+.light .title{
+    background:#e3e3e3;
+    color:#222;
+}
+
+.light .title:hover{
+    background:#d9d9d9;
+}
+
+.light .tool{
+    background:#ffffff;
+    color:#222;
+    border-color:#cfcfcf;
+}
+
+.light .tool:hover{
+    background:#22A438;
+    color:#fff;
+    border-color:#34B84C;
+}
+
+.light .tool.missing:hover,
+.light .tool:disabled:hover{
+    background:#ffffff;
+    color:#222;
+    border-color:#cfcfcf;
+}
+
+.light #search{
+    background:#fff;
+    color:#222;
+    border-color:#bdbdbd;
+}
+
+.light #statusBar{
+    background:#e0e0e0;
+    border-top-color:#cfcfcf;
+}
+
+.light .status.info{
+    background:#e8e8e8;
+    color:#333;
+}
+
+.light #updateBar{
+    background:#e6e6e6;
+    color:#333;
+    border-top-color:#cfcfcf;
+}
+
+.light .update-track{
+    background:#cfcfcf;
+}
+
+.light ::-webkit-scrollbar-thumb{
+    background:#b5b5b5;
+}
+
+.light .category-icon:not(.fav-title-icon),
+.light .arrow,
+.light .tool-help{
+    filter:invert(1);
+}
+
+.light .fav-empty{
+    color:#666;
+}
+
+.light .modal{
+    background:#f7f7f7;
+}
+
+.light .modal-head{
+    border-bottom-color:#d0d0d0;
+    color:#1a8f2e;
+}
+
+.light #whatsNewBody{
+    color:#222;
 }
