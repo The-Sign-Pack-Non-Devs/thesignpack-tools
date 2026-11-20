@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <ExtensionManifest Version="7.0"
-    ExtensionBundleId="com.TheSignPackTools.dev"
+    ExtensionBundleId="com.TheSignPackTools"
     ExtensionBundleVersion="1.0.0"
-    ExtensionBundleName="The Sign Pack Tools DEV">
+    ExtensionBundleName="The Sign Pack Tools">
 
     <ExtensionList>
 
         <Extension
-            Id="com.TheSignPackTools.panel.dev"
+            Id="com.TheSignPackTools.panel"
             Version="1.0.0"/>
 
 
@@ -34,7 +34,7 @@
 
         <!-- MAIN PANEL -->
 
-        <Extension Id="com.TheSignPackTools.panel.dev">
+        <Extension Id="com.TheSignPackTools.panel">
 
             <DispatchInfo>
 
@@ -54,7 +54,7 @@
 
                     <Type>Panel</Type>
 
-                    <Menu>The Sign Pack Tools DEV</Menu>
+                    <Menu>The Sign Pack Tools</Menu>
 
                     <Icons>
                         <Icon Type="Normal">./client/icons/IconLight.png</Icon>

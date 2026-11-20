@@ -36,11 +36,47 @@ var LIBRARY = {
     updateType: null,
 
     // ==========================================
+    // BRANCH OF THE LOCAL GIT CLONE
+    // ==========================================
+    //
+    // When the extension folder is a Git clone (developer machines),
+    // returns the checked-out branch from .git/HEAD, so "git checkout"
+    // also switches where updates come from. Returns "" otherwise
+    // (normal installs have no .git folder).
+
+    getCheckedOutBranch: function(){
+
+        try{
+
+            if(typeof CACHE === "undefined" || !CACHE.rootPath){
+                return "";
+            }
+
+            var r = window.cep.fs.readFile(CACHE.rootPath + "/.git/HEAD");
+
+            if(r.err !== 0){
+                return "";
+            }
+
+            // "ref: refs/heads/<branch>"; a detached HEAD (commit hash) is ignored
+            var m = /^ref:\s*refs\/heads\/(.+?)\s*$/.exec(r.data);
+
+            return m ? m[1] : "";
+
+        }
+        catch(e){
+            return "";
+        }
+
+    },
+
+    // ==========================================
     // BUILD REMOTE REQUEST
     // ==========================================
     //
     // Company private repository, accessed through the GitHub API.
-    // owner, repo, branch and token are defined in js/config.js.
+    // owner, repo and token can be set in js/config.js (optional).
+    // branch: config.js if set, else the checked-out Git branch, else main.
     // Library files live in the library/ folder of the repository.
     // Throws an error if the configuration is incomplete.
 
@@ -48,6 +84,7 @@ var LIBRARY = {
 
         // Where the library lives. config.js is OPTIONAL: without it (or without a token) the
         // panel reads the public repository directly, no token needed.
+        // Branch priority: config.js > checked-out Git branch > main.
         var DEFAULTS = {
             owner: "The-Sign-Pack-Non-Devs",
             repo: "thesignpack-tools",
@@ -64,7 +101,7 @@ var LIBRARY = {
         var github = {
             owner: cfg.owner || DEFAULTS.owner,
             repo: cfg.repo || DEFAULTS.repo,
-            branch: cfg.branch || DEFAULTS.branch,
+            branch: cfg.branch || LIBRARY.getCheckedOutBranch() || DEFAULTS.branch,
             token: cfg.token || ""
         };
 
