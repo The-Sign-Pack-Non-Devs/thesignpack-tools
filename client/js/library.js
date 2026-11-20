@@ -1,5 +1,34 @@
 var LIBRARY = {
 
+    // version.json that is installed (release notes, date)
+    localManifest: null,
+
+
+    // Progress hook: the app sets it to draw the update bar.
+    // onProgress(phase, done, total, name)  phase: "start" | "download" | "write" | "finish"
+    onProgress: null,
+
+    // fetch() with a time limit, so a slow network cannot hang the panel
+    fetchTimeout: function(url, options, ms){
+        var opts = {};
+        for(var k in options){ opts[k] = options[k]; }
+        var ctl = (typeof AbortController !== "undefined") ? new AbortController() : null;
+        var timer = null;
+        if(ctl){
+            opts.signal = ctl.signal;
+            timer = setTimeout(function(){ ctl.abort(); }, ms);
+        }
+        return fetch(url, opts).then(
+            function(r){ if(timer){ clearTimeout(timer); } return r; },
+            function(e){
+                if(timer){ clearTimeout(timer); }
+                if(e && e.name === "AbortError"){ throw new Error("Network timeout."); }
+                throw e;
+            }
+        );
+    },
+
+
     version: "0.0",
 
     remoteVersion: null,
@@ -7,23 +36,74 @@ var LIBRARY = {
     updateType: null,
 
     // ==========================================
+    // BRANCH OF THE LOCAL GIT CLONE
+    // ==========================================
+    //
+    // When the extension folder is a Git clone (developer machines),
+    // returns the checked-out branch from .git/HEAD, so "git checkout"
+    // also switches where updates come from. Returns "" otherwise
+    // (normal installs have no .git folder).
+
+    getCheckedOutBranch: function(){
+
+        try{
+
+            if(typeof CACHE === "undefined" || !CACHE.rootPath){
+                return "";
+            }
+
+            var r = window.cep.fs.readFile(CACHE.rootPath + "/.git/HEAD");
+
+            if(r.err !== 0){
+                return "";
+            }
+
+            // "ref: refs/heads/<branch>"; a detached HEAD (commit hash) is ignored
+            var m = /^ref:\s*refs\/heads\/(.+?)\s*$/.exec(r.data);
+
+            return m ? m[1] : "";
+
+        }
+        catch(e){
+            return "";
+        }
+
+    },
+
+    // ==========================================
     // BUILD REMOTE REQUEST
     // ==========================================
     //
     // Company private repository, accessed through the GitHub API.
-    // owner, repo, branch and token are defined in js/config.js.
+    // owner, repo and token can be set in js/config.js (optional).
+    // branch: config.js if set, else the checked-out Git branch, else main.
     // Library files live in the library/ folder of the repository.
     // Throws an error if the configuration is incomplete.
 
     buildRequest: function(relativePath){
 
-        var github =
+        // Where the library lives. config.js is OPTIONAL: without it (or without a token) the
+        // panel reads the public repository directly, no token needed.
+        // Branch priority: config.js > checked-out Git branch > main.
+        var DEFAULTS = {
+            owner: "The-Sign-Pack-Non-Devs",
+            repo: "thesignpack-tools",
+            branch: "main"
+        };
+
+        var cfg =
             (
                 typeof TSP_CONFIG !== "undefined" &&
                 TSP_CONFIG.github
             ) ||
             {};
 
+        var github = {
+            owner: cfg.owner || DEFAULTS.owner,
+            repo: cfg.repo || DEFAULTS.repo,
+            branch: cfg.branch || LIBRARY.getCheckedOutBranch() || DEFAULTS.branch,
+            token: cfg.token || ""
+        };
 
         relativePath =
             relativePath.replace(
@@ -31,62 +111,73 @@ var LIBRARY = {
                 ""
             );
 
-
-        if(
-            !github.token ||
-            !github.owner ||
-            !github.repo
-        ){
-
-            throw new Error(
-                "GitHub access is not configured (js/config.js)."
-            );
-
-        }
-
-
         var encodedPath =
             relativePath
                 .split("/")
                 .map(encodeURIComponent)
                 .join("/");
 
+        // ---- with a token: GitHub API (works for a private repository too) ----
+        if(github.token){
 
+            return {
+
+                url:
+                    "https://api.github.com/repos/" +
+                    encodeURIComponent(github.owner) +
+                    "/" +
+                    encodeURIComponent(github.repo) +
+                    "/contents/library/" +
+                    encodedPath +
+                    "?ref=" +
+                    encodeURIComponent(github.branch),
+
+                options: {
+
+                    cache: "no-store",
+
+                    headers: {
+
+                        "Authorization":
+                            "Bearer " +
+                            github.token,
+
+                        "Accept":
+                            "application/vnd.github.raw+json"
+
+                    }
+
+                }
+
+            };
+
+        }
+
+        // ---- no token: public raw files (no API limit shared by the whole office) ----
         return {
 
             url:
-                "https://api.github.com/repos/" +
+                "https://raw.githubusercontent.com/" +
                 encodeURIComponent(github.owner) +
                 "/" +
                 encodeURIComponent(github.repo) +
-                "/contents/library/" +
+                "/" +
+                encodeURIComponent(github.branch) +
+                "/library/" +
                 encodedPath +
-                "?ref=" +
-                encodeURIComponent(
-                    github.branch ||
-                    "main"
-                ),
+                "?cb=" +
+                new Date().getTime(),
 
             options: {
 
-                cache: "no-store",
-
-                headers: {
-
-                    "Authorization":
-                        "Bearer " +
-                        github.token,
-
-                    "Accept":
-                        "application/vnd.github.raw+json"
-
-                }
+                cache: "no-store"
 
             }
 
         };
 
     },
+
 
 
     // ==========================================
@@ -126,6 +217,29 @@ var LIBRARY = {
     // ==========================================
 
     getLocalVersion: function(callback){
+
+        // Read straight from the panel (cep.fs): no trip through Illustrator.
+        try{
+            var versionPath = CACHE.getFilePath("version.json");
+            var r = window.cep.fs.readFile(versionPath);
+            if(r && r.err === 0){
+                var text = String(r.data || "").replace(/^\uFEFF/, "");
+                var data = JSON.parse(text);
+                LIBRARY.version = data.version || "0.0";
+                LIBRARY.localManifest = data;
+                callback(LIBRARY.version);
+                return;
+            }
+        }
+        catch(eFs){}
+
+        LIBRARY.getLocalVersionJsx(callback);
+
+    },
+
+
+    // Old way (through Illustrator), only used if the direct read fails
+    getLocalVersionJsx: function(callback){
 
         var versionPath =
             CACHE.getFilePath(
@@ -224,10 +338,7 @@ var LIBRARY = {
                 );
 
 
-            return fetch(
-                request.url,
-                request.options
-            );
+            return LIBRARY.fetchTimeout(request.url, request.options, 8000);
 
         })
         .then(function(response){
@@ -266,8 +377,14 @@ var LIBRARY = {
 
             }
 
+            var msg = String((error && error.message) || error || "");
 
-            callback(null);
+            callback(null, {
+                offline:
+                    (typeof navigator !== "undefined" && navigator.onLine === false) ||
+                    /Failed to fetch|NetworkError|Network timeout|Load failed|network/i.test(msg),
+                message: msg
+            });
 
         });
 
@@ -278,80 +395,33 @@ var LIBRARY = {
     // COMPARE VERSIONS
     // ==========================================
 
-    compareVersions: function(
-		localVersion,
-		remoteVersion
-	){
+    compareVersions: function(localVersion, remoteVersion){
 
-		var local =
-			localVersion
-				.split(".")
-				.map(Number);
+        var local = String(localVersion).split(".").map(Number);
+        var remote = String(remoteVersion).split(".").map(Number);
+        var max = Math.max(local.length, remote.length);
 
+        for(var i = 0; i < max; i++){
 
-		var remote =
-			remoteVersion
-				.split(".")
-				.map(Number);
+            var localValue = local[i] || 0;
+            var remoteValue = remote[i] || 0;
 
+            if(remoteValue > localValue){
+                if(i === 0){ return "major"; }
+                if(i === 1){ return "minor"; }
+                return "patch";
+            }
 
-		var max =
-			Math.max(
-				local.length,
-				remote.length
-			);
+            if(remoteValue < localValue){
+                return "none";
+            }
 
+        }
 
-		for(
-			var i = 0;
-			i < max;
-			i++
-		){
+        return "none";
 
-			var localValue =
-				local[i] || 0;
+    },
 
-
-			var remoteValue =
-				remote[i] || 0;
-
-
-			if(
-				remoteValue >
-				localValue
-			){
-
-				if(i === 0){
-
-					return "major";
-
-				}
-
-
-				if(i === 1){
-
-					return "minor";
-
-				}
-
-			}
-
-
-			if(
-				remoteValue <
-				localValue
-			){
-
-				return "none";
-
-			}
-
-		}
-
-
-		return "none";
-
-	},
 
 
     // ==========================================
@@ -379,16 +449,15 @@ var LIBRARY = {
 
 
                 LIBRARY.getRemoteManifest(
-                    function(manifest){
+                    function(manifest, failure){
 
                         if(!manifest){
 
                             callback({
-
                                 success: false,
-
-                                hasUpdate: false
-
+                                hasUpdate: false,
+                                offline: !!(failure && failure.offline),
+                                error: failure ? failure.message : ""
                             });
 
                             return;
@@ -446,6 +515,9 @@ var LIBRARY = {
         callback
     ){
 
+        // Images are binary: they travel as base64 and are written back as binary.
+        var isBinary = /\.(png|jpg|jpeg|gif|ico|bmp|zip)$/i.test(relativePath);
+
         Promise.resolve()
         .then(function(){
 
@@ -454,11 +526,7 @@ var LIBRARY = {
                     relativePath
                 );
 
-
-            return fetch(
-                request.url,
-                request.options
-            );
+            return LIBRARY.fetchTimeout(request.url, request.options, 30000);
 
         })
         .then(function(response){
@@ -473,11 +541,35 @@ var LIBRARY = {
 
             }
 
-
-            return response.text();
+            return response.arrayBuffer();
 
         })
-        .then(function(content){
+        .then(function(buffer){
+
+            var bytes = new Uint8Array(buffer);
+            var content;
+
+            if(isBinary){
+
+                var binary = "";
+
+                for(var i = 0; i < bytes.length; i += 8192){
+
+                    binary += String.fromCharCode.apply(
+                        null,
+                        bytes.subarray(i, i + 8192)
+                    );
+
+                }
+
+                content = { base64: window.btoa(binary) };
+
+            }
+            else{
+
+                content = new TextDecoder("utf-8").decode(bytes);
+
+            }
 
             callback({
 
@@ -487,7 +579,10 @@ var LIBRARY = {
                     relativePath,
 
                 content:
-                    content
+                    content,
+
+                size:
+                    bytes.length
 
             });
 
@@ -511,93 +606,100 @@ var LIBRARY = {
     },
 
 
+
     // ==========================================
     // DOWNLOAD ALL FILES
     // ==========================================
 
-    downloadFiles: function(
-        files,
-        index,
-        downloaded,
-        callback
-    ){
+    downloadFiles: function(files, index, downloaded, callback){
 
-        if(
-            index >= files.length
-        ){
+        // Up to 4 files at the same time. Nothing is written to the library here:
+        // the files are only written after ALL of them arrived.
 
-            callback({
+        var total = files.length;
 
-                success: true,
-
-                files:
-                    downloaded
-
-            });
-
+        if(total === 0){
+            callback({ success: true, files: [] });
             return;
-
         }
 
+        var results = new Array(total);
+        var done = 0, next = 0, active = 0, failed = false;
 
-        var currentFile =
-            files[index];
+        function launch(){
 
+            if(failed){ return; }
 
-        notify(
-            "Downloading file " +
-            (index + 1) +
-            " of " +
-            files.length +
-            ":\n" +
-            currentFile,
-            "info"
-        );
+            while(active < 4 && next < total){
 
+                (function(i){
 
-        LIBRARY.downloadFile(
-            currentFile,
-            function(result){
+                    active++;
 
-                if(!result.success){
+                    LIBRARY.downloadFile(files[i], function(r){
 
-                    notify(
-                        "Unable to download:\n" +
-                        currentFile +
-                        "\n\n" +
-                        result.error,
-                        "error"
-                    );
+                        active--;
 
+                        if(failed){ return; }
 
-                    callback({
+                        if(!r.success){
 
-                        success: false,
+                            failed = true;
 
-                        error:
-                            result.error
+                            notify(
+                                "Unable to download:\n" + files[i] + "\n\n" + r.error,
+                                "error"
+                            );
+
+                            callback({ success: false, error: r.error });
+                            return;
+
+                        }
+
+                        // The size listed in version.json must match what arrived (nothing cut off)
+                        var expected = LIBRARY.expectedSizes ? LIBRARY.expectedSizes[files[i]] : undefined;
+
+                        if(typeof expected === "number" && r.size !== expected){
+
+                            failed = true;
+
+                            var why = "Incomplete download: " + files[i] +
+                                " (" + r.size + " bytes received, " + expected + " expected).";
+
+                            notify(why, "error");
+
+                            callback({ success: false, error: why });
+
+                            return;
+
+                        }
+
+                        results[i] = r;
+                        done++;
+
+                        if(LIBRARY.onProgress){
+                            LIBRARY.onProgress("download", done, total, files[i]);
+                        }
+
+                        if(done === total){
+                            callback({ success: true, files: results });
+                            return;
+                        }
+
+                        launch();
 
                     });
 
-                    return;
-
-                }
-
-
-                downloaded.push(result);
-
-
-                LIBRARY.downloadFiles(
-                    files,
-                    index + 1,
-                    downloaded,
-                    callback
-                );
+                })(next++);
 
             }
-        );
+
+        }
+
+        launch();
 
     },
+
 
 
     // ==========================================
@@ -632,6 +734,22 @@ var LIBRARY = {
         }
 
 
+        // Binary content arrives as { base64: "..." }
+        var isBinary = (content !== null && typeof content === "object" && typeof content.base64 === "string");
+
+        // Same content already in the library: nothing to write.
+        var existing = isBinary
+            ? window.cep.fs.readFile(filePath, window.cep.encoding.Base64)
+            : window.cep.fs.readFile(filePath);
+
+        if(
+            existing && existing.err === 0 &&
+            existing.data === (isBinary ? content.base64 : content)
+        ){
+            callback({ success: true, path: filePath, skipped: true });
+            return;
+        }
+
         // Written by the panel (cep.fs) instead of ExtendScript.
         // Decoding large files in ExtendScript blocks Illustrator
         // for minutes.
@@ -660,11 +778,9 @@ var LIBRARY = {
             }
 
 
-            var result =
-                window.cep.fs.writeFile(
-                    filePath,
-                    content
-                );
+            var result = isBinary
+                ? window.cep.fs.writeFile(filePath, content.base64, window.cep.encoding.Base64)
+                : window.cep.fs.writeFile(filePath, content);
 
 
             if(
@@ -747,15 +863,9 @@ var LIBRARY = {
             files[index];
 
 
-        notify(
-            "Writing file " +
-            (index + 1) +
-            " of " +
-            files.length +
-            ":\n" +
-            currentFile.path,
-            "info"
-        );
+        if(LIBRARY.onProgress){
+            LIBRARY.onProgress("write", index, files.length, currentFile.path);
+        }
 
 
         LIBRARY.writeCacheFile(
@@ -870,17 +980,17 @@ var LIBRARY = {
             manifest.files ||
             [];
 
+        // sizes listed in the manifest (optional): used to check each download
+        LIBRARY.expectedSizes = manifest.sizes || null;
+
 
         // ==========================================
         // DOWNLOAD FILES
         // ==========================================
 
-        notify(
-            "Downloading files for V" +
-            manifest.version +
-            "...",
-            "info"
-        );
+        if(LIBRARY.onProgress){
+            LIBRARY.onProgress("start", 0, files.length, "V" + manifest.version);
+        }
 
 
         LIBRARY.downloadFiles(

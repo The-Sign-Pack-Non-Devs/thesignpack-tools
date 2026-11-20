@@ -13,7 +13,9 @@ var TSP_CONFIG = {
 
         repo: "thesignpack-tools",
 
-        branch: "main",
+        // branch: leave it out. The panel uses the checked-out Git branch,
+        // or main on normal installs. Only set it on a test machine
+        // without Git, e.g. branch: "Development"
 
         token: ""
 

@@ -81,17 +81,38 @@ function runJSX(file){
             }
 
             else if(
+                (result.indexOf("ERROR:") === 0 ||
+                 result.indexOf("EvalScript error") === 0) &&
+                /cancel|8007/i.test(result)
+            ){
+
+                // The user cancelled: just say so, no error report.
+                notify(
+                    "Cancelled",
+                    "info"
+                );
+
+            }
+
+            else if(
                 result.indexOf(
                     "ERROR:"
+                ) === 0 ||
+                result.indexOf(
+                    "EvalScript error"
                 ) === 0
             ){
 
-                notify(
+                var errorText =
                     result.replace(
                         "ERROR:",
                         ""
-                    ),
-                    "error"
+                    );
+
+                notify(
+                    errorText,
+                    "error",
+                    { report: buildReport(file, result) }
                 );
 
             }
